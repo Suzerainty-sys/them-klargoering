@@ -1,0 +1,16 @@
+{
+  "name": "ThemFlow — Klargøring & Egenkontrol",
+  "short_name": "ThemFlow Klargøring",
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#F3F5F8",
+  "theme_color": "#1E4363",
+  "icons": [
+    {
+      "src": "ThemFlowApp.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}

@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ThemFlow — Klargøring &amp; Egenkontrol</title>
+
+    <!-- PWA / Tablet Fuldskærm & Ikoner -->
+    <meta name="theme-color" content="#1E4363">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="ThemFlow Klargør">
+    <link rel="icon" type="image/jpeg" href="ThemFlowApp.jpg">
+    <link rel="apple-touch-icon" href="ThemFlowApp.jpg">
+    <link rel="manifest" href="manifest.json">
+
+    <style>
+        :root {
+            --them-blue: #1E4363;
+            --bg-gray: #F3F5F8;
+            --text-dark: #1E293B;
+            --text-muted: #64748B;
+            --green: #16A34A;
+        }
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { margin: 0; background: var(--bg-gray); color: var(--text-dark); user-select: none; }
+
+        /* FULDSKÆRMS OPSTARTSSKÆRM */
+        #themflow-splash {
+            position: fixed;
+            inset: 0;
+            background-color: #FFFFFF;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            transition: opacity 0.5s ease-out, visibility 0.5s ease-out;
+        }
+        #themflow-splash img {
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+        }
+        .splash-track {
+            position: absolute;
+            bottom: 48px;
+            width: 220px;
+            height: 5px;
+            background-color: #E2E8F0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        #splash-bar {
+            width: 0%;
+            height: 100%;
+            background-color: var(--them-blue);
+            transition: width 1.6s ease-in-out;
+        }
+
+        header {
+            background: var(--them-blue);
+            color: white;
+            padding: 18px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        header h1 { margin: 0; font-size: 1.4rem; }
+        header .sub { font-size: 0.9rem; opacity: 0.85; margin-top: 3px; }
+        .week-badge {
+            background: rgba(255,255,255,0.15);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1rem;
+        }
+
+        .container { max-width: 1100px; margin: 32px auto; padding: 0 24px; }
+        .section-header { padding-bottom: 12px; margin-bottom: 22px; border-bottom: 3px solid var(--them-blue); }
+        .section-header h2 { margin: 0 0 4px 0; font-size: 1.35rem; color: var(--them-blue); }
+        .section-header p { margin: 0; font-size: 0.92rem; color: var(--text-muted); }
+
+        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 720px) { .action-grid { grid-template-columns: 1fr; } }
+
+        .portal-btn {
+            background: #FFFFFF;
+            border: 2px solid #CBD5E1;
+            border-radius: 14px;
+            padding: 28px 22px;
+            text-align: left;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            position: relative;
+            transition: transform 0.1s ease, border-color 0.15s ease, background 0.15s ease;
+        }
+        .portal-btn:hover { background: #F8FAFC; border-color: #94A3B8; }
+        .portal-btn:active { transform: scale(0.98); border-color: var(--them-blue); background: #EFF6FF; }
+        .portal-btn.primary { background: var(--them-blue); border-color: var(--them-blue); color: white; }
+        .portal-btn.primary:hover { background: #2A5880; }
+        .portal-btn.primary .title { color: white; }
+        .portal-btn.primary .meta { color: #CBD5E1; }
+        .portal-btn .icon { font-size: 2.5rem; }
+        .portal-btn .title { font-weight: 700; font-size: 1.2rem; display: block; color: var(--text-dark); }
+        .portal-btn .meta { font-size: 0.92rem; color: var(--text-muted); display: block; margin-top: 4px; }
+
+        .draft-badge { display: none; position: absolute; top: 12px; right: 12px; background: #FEF3C7; color: #92400E; border: 1px solid #F59E0B; font-size: 0.78rem; font-weight: 700; padding: 4px 10px; border-radius: 20px; }
+        .draft-badge.visible { display: inline-block; }
+
+        .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.65); z-index: 100; align-items: center; justify-content: center; padding: 16px; }
+        .modal-backdrop.open { display: flex; }
+        .modal { background: white; border-radius: 16px; width: 100%; max-width: 720px; max-height: 90vh; overflow-y: auto; }
+        .modal-header { background: var(--them-blue); color: white; padding: 18px 22px; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h3 { margin: 0; font-size: 1.15rem; }
+        .close-btn { background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .modal-body { padding: 22px; }
+        .draft-banner { background: #FEF3C7; border: 1px solid #F59E0B; color: #92400E; padding: 10px 14px; border-radius: 8px; font-size: 0.88rem; font-weight: 600; margin-bottom: 16px; }
+
+        .form-group { margin-bottom: 16px; }
+        label { display: block; font-weight: 600; font-size: 0.92rem; margin-bottom: 6px; color: var(--text-dark); }
+        input[type="text"], select, textarea { width: 100%; padding: 12px 14px; border: 2px solid #CBD5E1; border-radius: 10px; font-size: 1rem; background: #F8FAFC; user-select: text; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--them-blue); background: white; }
+
+        table.reng-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; margin-top: 10px; }
+        table.reng-table th, table.reng-table td { border: 1px solid #CBD5E1; padding: 10px 6px; text-align: center; }
+        table.reng-table th { background: var(--them-blue); color: white; }
+        table.reng-table td:first-child { text-align: left; font-weight: 500; padding-left: 10px; }
+        table.reng-table input[type="checkbox"] { width: 22px; height: 22px; cursor: pointer; accent-color: var(--them-blue); }
+
+        .modal-footer { padding: 16px 22px; background: #F8FAFC; border-top: 1px solid #E2E8F0; display: flex; gap: 10px; justify-content: space-between; align-items: center; }
+        .btn-clear { background: #FEE2E2; color: #991B1B; border: 1px solid #FCA5A5; padding: 12px 16px; border-radius: 10px; font-weight: bold; font-size: 0.92rem; cursor: pointer; }
+        .btn-cancel { background: #E2E8F0; border: none; padding: 14px 18px; border-radius: 10px; font-weight: bold; font-size: 0.95rem; cursor: pointer; }
+        .btn-submit { background: var(--green); color: white; border: none; padding: 14px 22px; border-radius: 10px; font-weight: bold; font-size: 1rem; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div id="themflow-splash">
+    <img src="ThemFlowSplash.jpg" alt="ThemFlow">
+    <div class="splash-track">
+        <div id="splash-bar"></div>
+    </div>
+</div>
+
+<header>
+    <div>
+        <h1>ThemFlow — Klargøring</h1>
+        <div class="sub">Them Mejeri • Klargøring &amp; Sporbarhed • <span id="ugeHeader">Uge --</span></div>
+    </div>
+    <div class="week-badge" id="ugeBadge">Uge --</div>
+</header>
+
+<div class="container">
+    <div class="section-header">
+        <h2>⚙️ Egenkontrol &amp; Blanketter (Klargøring)</h2>
+        <p>Indtastninger gemmes automatisk som kladde, indtil du sender dem til ledelsen</p>
+    </div>
+
+    <div class="action-grid">
+        <button class="portal-btn primary" onclick="aabnModal('aluModal')">
+            <span class="draft-badge" id="badge-aluModal">📝 Kladde</span>
+            <span class="icon">🎞️</span>
+            <div>
+                <span class="title">Alufolie Ringbind (35)</span>
+                <span class="meta">Registrér batch &amp; lot til sporbarhed</span>
+            </div>
+        </button>
+
+        <button class="portal-btn" onclick="aabnModal('rengModal')">
+            <span class="draft-badge" id="badge-rengModal">📝 Kladde</span>
+            <span class="icon">📋</span>
+            <div>
+                <span class="title">Rengøringsskema</span>
+                <span class="meta">Ugentlig rengøringskontrol i Klargøring</span>
+            </div>
+        </button>
+
+        <button class="portal-btn" onclick="aabnModal('ttuModal')">
+            <span class="draft-badge" id="badge-ttuModal">📝 Kladde</span>
+            <span class="icon">📑</span>
+            <div>
+                <span class="title">TTU-Blanketter</span>
+                <span class="meta">Tilløb til ulykke &amp; sikkerhed</span>
+            </div>
+        </button>
+
+        <button class="portal-btn" onclick="aabnModal('afvModal')">
+            <span class="draft-badge" id="badge-afvModal">📝 Kladde</span>
+            <span class="icon">⚠️</span>
+            <div>
+                <span class="title">Afvigelsesblanketter</span>
+                <span class="meta">Registrér afvigelse på folie eller udstyr</span>
+            </div>
+        </button>
+    </div>
+</div>
+<!-- MODAL 1: ALUFOLIE RINGBIND -->
+<div class="modal-backdrop" id="aluModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>🎞️ Registrér Alufolie — Sporbarhed (Fane 1–35)</h3>
+            <button class="close-btn" onclick="lukModal('aluModal')">💾 Gem kladde &amp; Luk</button>
+        </div>
+        <div class="modal-body">
+            <div class="draft-banner">💡 Dine indtastninger gemmes løbende som kladde på denne tablet, hvis du lukker vinduet.</div>
+            <div class="form-group">
+                <label>Vælg Ringbinds-fane (1–35):</label>
+                <select id="aluFaneSelect" onchange="gemKladde()"></select>
+            </div>
+            <div class="form-group">
+                <label>Batch Nr. (Them / Internt):</label>
+                <input type="text" id="aluBatch" placeholder="F.eks. B-90412" oninput="gemKladde()">
+            </div>
+            <div class="form-group">
+                <label>Leverandør Lot Nr. (Fra rulle/kasse):</label>
+                <input type="text" id="aluLot" placeholder="F.eks. L-88210" oninput="gemKladde()">
+            </div>
+            <div class="form-group">
+                <label>Fødevarekontakt-erklæring &amp; visuel kontrol:</label>
+                <select id="aluGodkendt" onchange="gemKladde()">
+                    <option value="true">✔ Godkendt (Fødevarekontakt OK &amp; ubeskadiget)</option>
+                    <option value="false">⚠️ Afventer / Sat i bero</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Dine initialer:</label>
+                <input type="text" id="aluInit" placeholder="F.eks. JH" maxlength="6" style="text-transform:uppercase;" oninput="gemKladde()">
+            </div>
+            <div class="form-group">
+                <label>Bemærkning (valgfrit):</label>
+                <input type="text" id="aluBem" placeholder="Evt. kommentar til rulle eller pallenummer" oninput="gemKladde()">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-clear" onclick="rydAluKladde(true)">🗑️ Ryd kladde</button>
+            <div style="display:flex; gap:10px;">
+                <button class="btn-cancel" onclick="lukModal('aluModal')">Gem kladde &amp; Luk</button>
+                <button class="btn-submit" id="btnGemAlu" onclick="gemAlufolie()">✔ Send til Ledelse</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL 2: RENGØRINGSSKEMA -->
+<div class="modal-backdrop" id="rengModal">
+    <div class="modal" style="max-width:1050px; width:94vw;">
+        <div class="modal-header">
+            <div>
+                <h3>📋 Egenkontrol Rengøring — Klargøring (Uge <span id="rengUgeTitel">--</span>)</h3>
+                <div style="font-size:0.82rem; opacity:0.85; margin-top:2px;">Ugentlig rengøringskontrol og visuel godkendelse</div>
+            </div>
+            <button class="close-btn" onclick="lukModal('rengModal')">💾 Gem kladde &amp; Luk</button>
+        </div>
+        <div class="modal-body">
+            <div class="draft-banner">💡 Sæt dine daglige krydser i løbet af ugen og luk vinduet — dine krydser og initialer gemmes automatisk som kladde.</div>
+            <div class="form-group" style="max-width:280px;">
+                <label>Standard initialer (udfylder automatisk ved kryds):</label>
+                <input type="text" id="rengInit" placeholder="F.eks. JH" maxlength="6" style="text-transform:uppercase;" oninput="gemKladde()">
+            </div>
+            <table class="reng-table">
+                <thead>
+                    <tr>
+                        <th style="text-align:left; padding-left:10px;">Hovedemne / Underemne</th>
+                        <th style="width:48px;">Man</th>
+                        <th style="width:48px;">Tir</th>
+                        <th style="width:48px;">Ons</th>
+                        <th style="width:48px;">Tor</th>
+                        <th style="width:48px;">Fre</th>
+                        <th style="width:48px;">Lør</th>
+                        <th style="width:48px;">Søn</th>
+                        <th style="width:80px;">Init.</th>
+                    </tr>
+                </thead>
+                <tbody id="rengBody"></tbody>
+            </table>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-clear" onclick="rydRengKladde(true)">🗑️ Ryd kladde</button>
+            <div style="display:flex; gap:10px;">
+                <button class="btn-cancel" onclick="lukModal('rengModal')">Gem kladde &amp; Luk</button>
+                <button class="btn-submit" id="btnGemReng" onclick="gemRengoering()">✔ Afslut Uge &amp; Send til Ledelse</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- MODAL 3: AFVIGELSESBLANKET -->
+<div class="modal-backdrop" id="afvModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>⚠️ Afvigelsesblanket (NCR) — Klargøring</h3>
+            <button class="close-btn" onclick="lukModal('afvModal')">💾 Gem kladde &amp; Luk</button>
+        </div>
+        <div class="modal-body">
+            <div class="draft-banner">💡 Blanketten gemmes som kladde, hvis du skal ud og undersøge sagen nærmere.</div>
+            <div class="form-group">
+                <label>1. Hvilken type afvigelse drejer det sig om?</label>
+                <select id="afvType" onchange="gemKladde()">
+                    <option>Alufolie: Manglende / forkert mærkning eller lot</option>
+                    <option>Alufolie: Beskadiget rulle / emballage</option>
+                    <option>Mangelfuld rengøring / kemi</option>
+                    <option>Defekt udstyr / maskinstop i Klargøring</option>
+                    <option>Fremmedlegemer / kontaminering</option>
+                    <option>Anden afvigelse</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>2. Dato &amp; tidspunkt for hændelsen:</label>
+                <input type="text" id="afvDatoTid" oninput="gemKladde()">
+            </div>
+            <div class="form-group">
+                <label>3. Indberettet af (Initialer):</label>
+                <input type="text" id="afvInit" placeholder="F.eks. JH" maxlength="6" style="text-transform:uppercase;" oninput="gemKladde()">
+            </div>
+            <div class="form-group">
+                <label>4. Beskrivelse af afvigelsen (Hvad er opdaget?):</label>
+                <textarea id="afvBesk" rows="3" placeholder="Beskriv afvigelsen så præcist som muligt..." oninput="gemKladde()"></textarea>
+            </div>
+            <div class="form-group">
+                <label>5. Udført straks- / korrigerende handling:</label>
+                <textarea id="afvHandling" rows="3" placeholder="F.eks. palle/rulle spærret og leder informeret..." oninput="gemKladde()"></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-clear" onclick="rydAfvKladde(true)">🗑️ Ryd kladde</button>
+            <div style="display:flex; gap:10px;">
+                <button class="btn-cancel" onclick="lukModal('afvModal')">Gem kladde &amp; Luk</button>
+                <button class="btn-submit" id="btnGemAfv" onclick="gemAfvigelse()">✔ Send til Ledelse</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL 4: TTU-BLANKET -->
+<div class="modal-backdrop" id="ttuModal">
+    <div class="modal" style="max-width:1000px;">
+        <div class="modal-header">
+            <div>
+                <h3>📑 SIKKERHEDSREGISTRERING – MEJERI</h3>
+                <div style="font-size:0.82rem; opacity:0.85; margin-top:2px;">Registrering af tilløb til ulykke (TTU) samt ulykker med og uden fravær</div>
+            </div>
+            <button class="close-btn" onclick="lukModal('ttuModal')">💾 Gem kladde &amp; Luk</button>
+        </div>
+        <div class="modal-body">
+            <div class="draft-banner">💡 Blanketten gemmes automatisk som kladde, indtil du sender den til AMO / Ledelsen.</div>
+
+            <div class="form-group">
+                <label style="color:var(--them-blue); font-size:0.98rem;">1. HÆNDELSESTYPE (Vælg én)</label>
+                <div style="display:flex; flex-direction:column; gap:8px; background:#F8FAFC; padding:12px; border:1px solid #CBD5E1; border-radius:10px;">
+                    <label style="margin:0; font-weight:normal; cursor:pointer;">
+                        <input type="radio" name="ttuHaendelse" value="TTU – Tilløb til ulykke / Nærved-ulykke" checked onchange="gemKladde()">
+                        <strong>TTU – Tilløb til ulykke / Nærved-ulykke</strong> <span style="color:var(--text-muted);">(Ingen skade, men det var tæt på)</span>
+                    </label>
+                    <label style="margin:0; font-weight:normal; cursor:pointer;">
+                        <input type="radio" name="ttuHaendelse" value="Ulykke UDEN fravær" onchange="gemKladde()">
+                        <strong>Ulykke UDEN fravær</strong> <span style="color:var(--text-muted);">(Førstehjælp, mindre skramme, lægebesøg uden sygemelding)</span>
+                    </label>
+                    <label style="margin:0; font-weight:normal; cursor:pointer;">
+                        <input type="radio" name="ttuHaendelse" value="Ulykke MED fravær / LTI" onchange="gemKladde()">
+                        <strong>Ulykke MED fravær / LTI</strong> <span style="color:var(--text-muted);">(Sygemelding ud over tilskadekomstdagen)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label style="color:var(--them-blue); font-size:0.98rem;">2. TID, STED OG INVOLVEREDE</label>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:10px;">
+                    <div>
+                        <label>Dato og tidspunkt:</label>
+                        <input type="text" id="ttuDatoTid" oninput="gemKladde()">
+                    </div>
+                    <div>
+                        <label>Indberettet af (Navn / Init):</label>
+                        <input type="text" id="ttuInit" placeholder="F.eks. JH" oninput="gemKladde()">
+                    </div>
+                </div>
+                <div style="margin-bottom:10px;">
+                    <label>Involveret / tilskadekommen (navn &amp; stilling):</label>
+                    <input type="text" id="ttuInvolveret" placeholder="Navn &amp; stilling (eller 'Ingen')" oninput="gemKladde()">
+                </div>
+                <label>Afdeling / Procesområde:</label>
+                <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; background:#F8FAFC; padding:12px; border:1px solid #CBD5E1; border-radius:10px; font-size:0.92rem;">
+                    <label style="margin:0; font-weight:normal;"><input type="radio" name="ttuAfd" value="Tårnlager" onchange="gemKladde()"> Tårnlager</label>
+                    <label style="margin:0; font-weight:normal;"><input type="radio" name="ttuAfd" value="Pakkeri" onchange="gemKladde()"> Pakkeri</label>
+                    <label style="margin:0; font-weight:normal;"><input type="radio" name="ttuAfd" value="Kit 1" onchange="gemKladde()"> Kit 1</label>
+                    <label style="margin:0; font-weight:normal;"><input type="radio" name="ttuAfd" value="Produktion" onchange="gemKladde()"> Produktion</label>
+                    <label style="margin:0; font-weight:normal;"><input type="radio" name="ttuAfd" value="Kølerum" onchange="gemKladde()"> Kølerum</label>
+                    <label style="margin:0; font-weight:normal;"><input type="radio" name="ttuAfd" value="Kit 2" onchange="gemKladde()"> Kit 2</label>
+                    <label style="margin:0; font-weight:bold; color:var(--them-blue);"><input type="radio" name="ttuAfd" value="Klargøring" checked onchange="gemKladde()"> Klargøring</label>
+                    <label style="margin:0; font-weight:normal;"><input type="radio" name="ttuAfd" value="Kassevask" onchange="gemKladde()"> Kassevask</label>
+                    <label style="margin:0; font-weight:normal;"><input type="radio" name="ttuAfd" value="Kit 3" onchange="gemKladde()"> Kit 3</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label style="color:var(--them-blue); font-size:0.98rem;">3. BESKRIVELSE &amp; FOREBYGGELSE (Skriv med egne ord)</label>
+                <div style="margin-bottom:10px;">
+                    <label>Hvad skete der? (Hvad var du i gang med, og hvordan opstod situationen?)</label>
+                    <textarea id="ttuHvad" rows="3" oninput="gemKladde()"></textarea>
+                </div>
+                <div style="margin-bottom:10px;">
+                    <label>Hvad kunne være gjort anderledes, så hændelsen var undgået?</label>
+                    <textarea id="ttuForebyg" rows="2" oninput="gemKladde()"></textarea>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div>
+                        <label>Kun ved personskade – Skadetype &amp; legemsdel:</label>
+                        <input type="text" id="ttuSkadetype" placeholder="F.eks. Snitsår på finger" oninput="gemKladde()">
+                    </div>
+                    <div>
+                        <label>Behandling:</label>
+                        <select id="ttuBehandling" onchange="gemKladde()">
+                            <option value="Ingen behandling">Ingen behandling</option>
+                            <option value="Førstehjælp på mejeriet">Førstehjælp på mejeriet</option>
+                            <option value="Skadestue / egen læge">Skadestue / egen læge</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label style="color:var(--them-blue); font-size:0.98rem;">4. MEJERI-SPECIFIKKE RISIKOFAKTORER (Sæt gerne flere kryds)</label>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; background:#F8FAFC; padding:12px; border:1px solid #CBD5E1; border-radius:10px; font-size:0.88rem;">
+                    <label style="margin:0; font-weight:normal;"><input type="checkbox" class="ttu-risiko" value="Glat gulv / Vådt miljø (valle, mælk, vand, sæbe)" onchange="gemKladde()"> <strong>Glat gulv / Vådt miljø</strong> (valle, mælk, vand, sæbe)</label>
+                    <label style="margin:0; font-weight:normal;"><input type="checkbox" class="ttu-risiko" value="Kemi og CIP (syre/lud, pakninger, afspærring)" onchange="gemKladde()"> <strong>Kemi og CIP</strong> (syre/lud, pakninger, afspærring)</label>
+                    <label style="margin:0; font-weight:normal;"><input type="checkbox" class="ttu-risiko" value="Varme / Kulde (damp, varmt vand, køle-/frostrum)" onchange="gemKladde()"> <strong>Varme / Kulde</strong> (damp, varmt vand, køle-/frostrum)</label>
+                    <label style="margin:0; font-weight:normal;"><input type="checkbox" class="ttu-risiko" value="Maskiner og pakkelinjer (klemfare, bånd, afskærmning)" onchange="gemKladde()"> <strong>Maskiner og pakkelinjer</strong> (klemfare, bånd, afskærmning)</label>
+                    <label style="margin:0; font-weight:normal;"><input type="checkbox" class="ttu-risiko" value="Ergonomi / tunge løft (oste, sække, kasser, EGA)" onchange="gemKladde()"> <strong>Ergonomi / tunge løft</strong> (oste, sække, kasser, EGA)</label>
+                    <label style="margin:0; font-weight:normal;"><input type="checkbox" class="ttu-risiko" value="Intern trafik (truck, palleløfter, travlhed v. rampe)" onchange="gemKladde()"> <strong>Intern trafik</strong> (truck, palleløfter, travlhed v. rampe)</label>
+                    <label style="margin:0; font-weight:normal;"><input type="checkbox" class="ttu-risiko" value="Værnemidler / PV (manglende sko, handsker, briller)" onchange="gemKladde()"> <strong>Værnemidler / PV</strong> (manglende sko, handsker, briller)</label>
+                    <label style="margin:0; font-weight:normal;"><input type="checkbox" class="ttu-risiko" value="Instruktion / Planlægning (travlhed, oplæring, SOP)" onchange="gemKladde()"> <strong>Instruktion / Planlægning</strong> (travlhed, oplæring, SOP)</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label style="color:var(--them-blue); font-size:0.98rem;">5. STRAKSHANDLING (Hvad blev gjort her og nu for at sikre stedet?)</label>
+                <div style="display:flex; flex-direction:column; gap:8px; background:#F8FAFC; padding:12px; border:1px solid #CBD5E1; border-radius:10px; font-size:0.9rem;">
+                    <label style="margin:0; font-weight:normal;"><input type="checkbox" class="ttu-straks" value="Tørret op / rengjort / afspærret område" onchange="gemKladde()"> Tørret op / rengjort / afspærret område</label>
+                    <label style="margin:0; font-weight:normal;"><input type="checkbox" class="ttu-straks" value="Maskine stoppet / mærket ude af drift" onchange="gemKladde()"> Maskine stoppet / mærket ude af drift</label>
+                    <label style="margin:0; font-weight:normal;"><input type="checkbox" class="ttu-straks" value="Ydet førstehjælp / sendt til læge" onchange="gemKladde()"> Ydet førstehjælp / sendt til læge</label>
+                </div>
+            </div>
+
+            <div style="font-size:0.84rem; color:var(--text-muted); font-style:italic; margin-top:8px;">
+                Punkt 6–7 (5 x Hvorfor &amp; opfølgning) udfyldes automatisk af AMO / leder i ledelsens Excel-rapport.
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-clear" onclick="rydTtuKladde(true)">🗑️ Ryd formular</button>
+            <div style="display:flex; gap:10px;">
+                <button class="btn-cancel" onclick="lukModal('ttuModal')">Gem kladde &amp; Luk</button>
+                <button class="btn-submit" id="btnGemTtu" onclick="gemTtu()">✔ Send Sikkerhedsregistrering til Ledelse / AMO</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    // Rettet URL (uden dobbelt skråstreg)
+    const SUPABASE_BASE = "https://supabase.co";
+    const SUPABASE_KEY = "sb_publishable__QIYphTus8gdIWRWtX3SLg_4Yy6r-YW";
+    const KLADDE_NOEGLE = "them_klargoering_kladder_v1";
+
+    // Opstartsbillede animation
+    window.addEventListener('DOMContentLoaded', () => {
+        const bar = document.getElementById('splash-bar');
+        const splash = document.getElementById('themflow-splash');
+        if (bar) setTimeout(() => { bar.style.width = '100%'; }, 50);
+        setTimeout(() => {
+            if (splash) {
+                splash.style.opacity = '0';
+                splash.style.visibility = 'hidden';
+            }
+        }, 1800);
+    });
+
+    async function postTilSupabase(tabel, dataObj, btnId, standardTekst) {
+        const btn = document.getElementById(btnId);
+        btn.disabled = true;
+        btn.innerText = "Sender...";
+        try {
+            const res = await fetch(`${SUPABASE_BASE}/${tabel}`, {
+                method: "POST",
+                headers: {
+                    "apikey": SUPABASE_KEY,
+                    "Authorization": "Bearer " + SUPABASE_KEY,
+                    "Content-Type": "application/json",
+                    "Prefer": "return=minimal"
+                },
+                body: JSON.stringify(dataObj)
+            });
+            if (!res.ok) throw new Error(await res.text());
+            return true;
+        } catch (err) {
+            alert("Fejl ved skrivning til skyen: " + err.message);
+            return false;
+        } finally {
+            btn.disabled = false;
+            btn.innerText = standardTekst;
+        }
+    }
+
+    function getISOWeek(d) {
+        const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+        date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+        const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+        return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+    }
+    const aktuelUge = getISOWeek(new Date());
+    document.getElementById('ugeBadge').innerText = `Uge ${aktuelUge}`;
+    document.getElementById('ugeHeader').innerText = `Uge ${aktuelUge}`;
+
+    // Fyld 35 alufoliefaner
+    const selectEl = document.getElementById('aluFaneSelect');
+    for (let i = 1; i <= 35; i++) {
+        const opt = document.createElement('option');
+        const navn = `${String(i).padStart(2, '0')} Alufolietype ${i}`;
+        opt.value = JSON.stringify({ nr: i, navn });
+        opt.textContent = `Fane ${navn}`;
+        selectEl.appendChild(opt);
+    }
+
+    document.getElementById('rengUgeTitel').innerText = aktuelUge;
+
+    const rengZoner = [
+        {
+            titel: "1. ROBOTLINJEN",
+            emner: [
+                { id: "r1", tekst: "Fjernelse/spuling af rester fra gulv" },
+                { id: "r2", tekst: "Vask af gulv" },
+                { id: "r3", tekst: "Spuling af hele robotlinjen inkl. bånd" },
+                { id: "r4", tekst: "Udlægning af skumprodukter jf. procedure" },
+                { id: "r5", tekst: "Visuel kontrol efter endt rengøring" }
+            ]
+        },
+        {
+            titel: "2. ALULINJEN",
+            emner: [
+                { id: "a1", tekst: "Fjernelse/spuling af rester fra gulv" },
+                { id: "a2", tekst: "Vask af gulv" },
+                { id: "a3", tekst: "Spuling af hele Alulinjen inkl. bånd" },
+                { id: "a4", tekst: "Udlægning af skumprodukter jf. procedure" },
+                { id: "a5", tekst: "Visuel kontrol efter endt rengøring" }
+            ]
+        },
+        {
+            titel: "3. FLOWPAKLINJEN INKL. HØVLOMRÅDE",
+            emner: [
+                { id: "f1", tekst: "Fjernelse/spuling af rester fra gulv" },
+                { id: "f2", tekst: "Vask af gulv" },
+                { id: "f3", tekst: "Aftørring af indløbsbånd i begge ender" },
+                { id: "f4", tekst: "Rensning af kniv efter endt arbejde" },
+                { id: "f5", tekst: "Udlægning af skumprodukter jf. procedure" }
+            ]
+        }
+    ];
+
+    const dage = ["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"];
+    const tbody = document.getElementById('rengBody');
+    tbody.innerHTML = "";
+    rengZoner.forEach(zone => {
+        const zTr = document.createElement('tr');
+        zTr.innerHTML = `<td colspan="9" style="background:#1E4363; color:white; font-weight:bold; text-align:left; padding:9px 10px;">${zone.titel}</td>`;
+        tbody.appendChild(zTr);
+
+        zone.emner.forEach(p => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${p.tekst}</td>` +
+                dage.map(d => `<td><input type="checkbox" class="reng-chk" data-id="${p.id}" data-dag="${d}" onchange="opdaterRaekkeInit('${p.id}'); gemKladde();"></td>`).join('') +
+                `<td><input type="text" class="reng-rinit" id="init-${p.id}" maxlength="4" style="padding:6px; text-align:center; text-transform:uppercase; font-size:0.85rem;" oninput="gemKladde()"></td>`;
+            tbody.appendChild(tr);
+        });
+    });
+
+    function opdaterRaekkeInit(id) {
+        const hovedInit = document.getElementById('rengInit').value.trim().toUpperCase();
+        const raekkeInitEl = document.getElementById(`init-${id}`);
+        const harKryds = document.querySelectorAll(`.reng-chk[data-id="${id}"]:checked`).length > 0;
+        if (harKryds && !raekkeInitEl.value && hovedInit) raekkeInitEl.value = hovedInit;
+        if (!harKryds) raekkeInitEl.value = "";
+    }
+    function gemKladde() {
+        const data = {
+            alu: {
+                fane: document.getElementById('aluFaneSelect').selectedIndex,
+                batch: document.getElementById('aluBatch').value,
+                lot: document.getElementById('aluLot').value,
+                ok: document.getElementById('aluGodkendt').value,
+                init: document.getElementById('aluInit').value,
+                bem: document.getElementById('aluBem').value
+            },
+            reng: {
+                init: document.getElementById('rengInit').value,
+                krydser: Array.from(document.querySelectorAll('.reng-chk:checked')).map(c => `${c.dataset.id}_${c.dataset.dag}`)
+            },
+            afv: {
+                type: document.getElementById('afvType').selectedIndex,
+                datoTid: document.getElementById('afvDatoTid').value,
+                init: document.getElementById('afvInit').value,
+                besk: document.getElementById('afvBesk').value,
+                handling: document.getElementById('afvHandling').value
+            },
+            ttu: {
+                haendelse: document.querySelector('input[name="ttuHaendelse"]:checked')?.value || "TTU – Tilløb til ulykke / Nærved-ulykke",
+                afd: document.querySelector('input[name="ttuAfd"]:checked')?.value || "Klargøring",
+                datoTid: document.getElementById('ttuDatoTid').value,
+                init: document.getElementById('ttuInit').value,
+                involveret: document.getElementById('ttuInvolveret').value,
+                hvad: document.getElementById('ttuHvad').value,
+                forebyg: document.getElementById('ttuForebyg').value,
+                skade: document.getElementById('ttuSkadetype').value,
+                beh: document.getElementById('ttuBehandling').value,
+                risici: Array.from(document.querySelectorAll('.ttu-risiko:checked')).map(c => c.value),
+                straks: Array.from(document.querySelectorAll('.ttu-straks:checked')).map(c => c.value)
+            }
+        };
+        localStorage.setItem(KLADDE_NOEGLE, JSON.stringify(data));
+        opdaterKladdeBadges(data);
+    }
+
+    function opdaterKladdeBadges(data) {
+        if (!data) return;
+        document.getElementById('badge-aluModal').classList.toggle('visible', !!(data.alu.batch || data.alu.lot || data.alu.bem));
+        document.getElementById('badge-rengModal').classList.toggle('visible', !!(data.reng.init || data.reng.krydser.length > 0));
+        document.getElementById('badge-afvModal').classList.toggle('visible', !!(data.afv.besk || data.afv.handling));
+        document.getElementById('badge-ttuModal').classList.toggle('visible', !!(data.ttu.hvad || data.ttu.forebyg || data.ttu.straks.length > 0 || data.ttu.risici.length > 0));
+    }
+
+    function indlaesKladder() {
+        const raa = localStorage.getItem(KLADDE_NOEGLE);
+        if (!raa) return;
+        const d = JSON.parse(raa);
+        if (d.alu) {
+            document.getElementById('aluFaneSelect').selectedIndex = d.alu.fane || 0;
+            document.getElementById('aluBatch').value = d.alu.batch || "";
+            document.getElementById('aluLot').value = d.alu.lot || "";
+            document.getElementById('aluGodkendt').value = d.alu.ok || "true";
+            document.getElementById('aluInit').value = d.alu.init || "";
+            document.getElementById('aluBem').value = d.alu.bem || "";
+        }
+        if (d.reng) {
+            document.getElementById('rengInit').value = d.reng.init || "";
+            (d.reng.krydser || []).forEach(key => {
+                const [id, dag] = key.split('_');
+                const chk = document.querySelector(`.reng-chk[data-id="${id}"][data-dag="${dag}"]`);
+                if (chk) chk.checked = true;
+            });
+        }
+        if (d.afv) {
+            document.getElementById('afvType').selectedIndex = d.afv.type || 0;
+            document.getElementById('afvDatoTid').value = d.afv.datoTid || "";
+            document.getElementById('afvInit').value = d.afv.init || "";
+            document.getElementById('afvBesk').value = d.afv.besk || "";
+            document.getElementById('afvHandling').value = d.afv.handling || "";
+        }
+        if (d.ttu) {
+            if (d.ttu.haendelse) {
+                const r = document.querySelector(`input[name="ttuHaendelse"][value="${d.ttu.haendelse}"]`);
+                if (r) r.checked = true;
+            }
+            if (d.ttu.afd) {
+                const a = document.querySelector(`input[name="ttuAfd"][value="${d.ttu.afd}"]`);
+                if (a) a.checked = true;
+            }
+            document.getElementById('ttuDatoTid').value = d.ttu.datoTid || "";
+            document.getElementById('ttuInit').value = d.ttu.init || "";
+            document.getElementById('ttuInvolveret').value = d.ttu.involveret || "";
+            document.getElementById('ttuHvad').value = d.ttu.hvad || "";
+            document.getElementById('ttuForebyg').value = d.ttu.forebyg || "";
+            document.getElementById('ttuSkadetype').value = d.ttu.skade || "";
+            document.getElementById('ttuBehandling').value = d.ttu.beh || "Ingen behandling";
+            (d.ttu.risici || []).forEach(val => {
+                const chk = document.querySelector(`.ttu-risiko[value="${val}"]`);
+                if (chk) chk.checked = true;
+            });
+            (d.ttu.straks || []).forEach(val => {
+                const chk = document.querySelector(`.ttu-straks[value="${val}"]`);
+                if (chk) chk.checked = true;
+            });
+        }
+        opdaterKladdeBadges(d);
+    }
+
+    function aabnModal(id) {
+        const nuTekst = new Date().toLocaleString('da-DK', { dateStyle: 'short', timeStyle: 'short' });
+        if (id === 'afvModal' && !document.getElementById('afvDatoTid').value) document.getElementById('afvDatoTid').value = nuTekst;
+        if (id === 'ttuModal' && !document.getElementById('ttuDatoTid').value) document.getElementById('ttuDatoTid').value = nuTekst;
+        document.getElementById(id).classList.add('open');
+    }
+    function lukModal(id) {
+        gemKladde();
+        document.getElementById(id).classList.remove('open');
+    }
+
+    function rydAluKladde(spoerg) {
+        if (spoerg && !confirm("Vil du slette kladden for Alufolie?")) return;
+        document.getElementById('aluBatch').value = "";
+        document.getElementById('aluLot').value = "";
+        document.getElementById('aluBem').value = "";
+        gemKladde();
+    }
+    function rydRengKladde(spoerg) {
+        if (spoerg && !confirm("Vil du rydde alle krydser i Rengøringsskemaet?")) return;
+        document.getElementById('rengInit').value = "";
+        document.querySelectorAll('.reng-chk').forEach(c => c.checked = false);
+        gemKladde();
+    }
+    function rydAfvKladde(spoerg) {
+        if (spoerg && !confirm("Vil du rydde kladden for Afvigelsesblanketten?")) return;
+        document.getElementById('afvDatoTid').value = "";
+        document.getElementById('afvBesk').value = "";
+        document.getElementById('afvHandling').value = "";
+        gemKladde();
+    }
+    function rydTtuKladde(spoerg) {
+        if (spoerg && !confirm("Vil du rydde formularen for TTU-blanketten?")) return;
+        document.querySelector('input[name="ttuHaendelse"]').checked = true;
+        document.querySelector('input[name="ttuAfd"][value="Klargøring"]').checked = true;
+        document.getElementById('ttuDatoTid').value = "";
+        document.getElementById('ttuInvolveret').value = "";
+        document.getElementById('ttuHvad').value = "";
+        document.getElementById('ttuForebyg').value = "";
+        document.getElementById('ttuSkadetype').value = "";
+        document.getElementById('ttuBehandling').selectedIndex = 0;
+        document.querySelectorAll('.ttu-risiko, .ttu-straks').forEach(c => c.checked = false);
+        gemKladde();
+    }
+    async function gemAlufolie() {
+        const faneObj = JSON.parse(document.getElementById('aluFaneSelect').value);
+        const batch = document.getElementById('aluBatch').value.trim();
+        const lot = document.getElementById('aluLot').value.trim();
+        const init = document.getElementById('aluInit').value.trim().toUpperCase();
+        if (!batch || !lot || !init) return alert("Udfyld Batch Nr., Leverandør Lot og Initialer.");
+
+        const ok = await postTilSupabase('alufolie_klargoering', {
+            fane_nr: faneObj.nr, folietype: faneObj.navn, batch_nr: batch, leverandoer_lot: lot,
+            foedevarekontakt_ok: document.getElementById('aluGodkendt').value === "true",
+            initialer: init, bemaerkning: document.getElementById('aluBem').value.trim()
+        }, 'btnGemAlu', '✔ Send til Ledelse');
+
+        if (ok) {
+            rydAluKladde(false);
+            lukModal('aluModal');
+            alert(`✔ Alufolie registreret under Fane ${faneObj.navn} og kladde ryddet!`);
+        }
+    }
+
+    async function gemRengoering() {
+        const hovedInit = document.getElementById('rengInit').value.trim().toUpperCase();
+        if (!hovedInit) return alert("Indtast venligst dine initialer øverst i skemaet.");
+
+        let dele = [`INIT:${hovedInit}`];
+        rengZoner.forEach(zone => {
+            zone.emner.forEach(p => {
+                const valgte = Array.from(document.querySelectorAll(`.reng-chk[data-id="${p.id}"]:checked`)).map(c => c.dataset.dag);
+                if (valgte.length > 0) {
+                    const rInit = (document.getElementById(`init-${p.id}`).value || hovedInit).trim().toUpperCase();
+                    dele.push(`${p.id}:${valgte.join(',')}|${rInit}`);
+                }
+            });
+        });
+
+        const ok = await postTilSupabase('rengoering_klargoering', {
+            uge: aktuelUge,
+            initialer: dele.join('#')
+        }, 'btnGemReng', '✔ Afslut Uge & Send til Ledelse');
+
+        if (ok) {
+            rydRengKladde(false);
+            lukModal('rengModal');
+            alert("✔ Rengøringsskema for Klargøring er sendt til ledelsen og kladde ryddet!");
+        }
+    }
+
+    async function gemAfvigelse() {
+        const init = document.getElementById('afvInit').value.trim().toUpperCase();
+        const besk = document.getElementById('afvBesk').value.trim();
+        if (!init || !besk) return alert("Udfyld initialer og beskrivelse.");
+
+        const ok = await postTilSupabase('afvigelser_kassevask', {
+            uge: aktuelUge,
+            dato_tid: document.getElementById('afvDatoTid').value.trim(),
+            initialer: init,
+            type: "[Klargøring] " + document.getElementById('afvType').value,
+            beskrivelse: besk,
+            korrigerende_handling: document.getElementById('afvHandling').value.trim()
+        }, 'btnGemAfv', '✔ Send til Ledelse');
+
+        if (ok) {
+            rydAfvKladde(false);
+            lukModal('afvModal');
+            alert("✔ Afvigelsesblanket sendt til ledelsen og kladde ryddet!");
+        }
+    }
+
+    async function gemTtu() {
+        const init = document.getElementById('ttuInit').value.trim();
+        const hvad = document.getElementById('ttuHvad').value.trim();
+        if (!init || !hvad) return alert("Udfyld navn/initialer og hændelsesbeskrivelse.");
+
+        const haendelse = document.querySelector('input[name="ttuHaendelse"]:checked')?.value || "TTU – Tilløb til ulykke / Nærved-ulykke";
+        const afdeling = document.querySelector('input[name="ttuAfd"]:checked')?.value || "Klargøring";
+        const valgteRisici = Array.from(document.querySelectorAll('.ttu-risiko:checked')).map(cb => cb.value).join(', ');
+        const valgteStraks = Array.from(document.querySelectorAll('.ttu-straks:checked')).map(cb => cb.value).join(', ');
+
+        const ok = await postTilSupabase('ttu_registreringer', {
+            uge: aktuelUge,
+            haendelsestype: haendelse,
+            dato_tid: document.getElementById('ttuDatoTid').value.trim(),
+            indberettet_af: init,
+            involveret: document.getElementById('ttuInvolveret').value.trim(),
+            afdeling: afdeling,
+            hvad_skete_der: hvad,
+            forebyggelse: document.getElementById('ttuForebyg').value.trim(),
+            skadetype: document.getElementById('ttuSkadetype').value.trim(),
+            behandling: document.getElementById('ttuBehandling').value,
+            risikofaktorer: valgteRisici || "Ingen valgt",
+            strakshandling: valgteStraks || "Ingen valgt"
+        }, 'btnGemTtu', '✔ Send Sikkerhedsregistrering til Ledelse / AMO');
+
+        if (ok) {
+            rydTtuKladde(false);
+            lukModal('ttuModal');
+            alert("✔ Sikkerhedsregistrering sendt til ledelsen / AMO og formular ryddet!");
+        }
+    }
+
+    indlaesKladder();
+</script>
+</body>
+</html>
